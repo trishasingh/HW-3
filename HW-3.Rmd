@@ -27,7 +27,7 @@ Please indicate
 
 * Who you collaborated with: Connor
 * Roughly how much time you spent on this HW so far: 5 hours
-* The URL of the RPubs published URL [here](https://www.nhl.com/).
+* The URL of the RPubs published URL [here](http://rpubs.com/tsingh/hw3).
 * What gave you the most trouble: Creating the Shiny app for question 1, I still couldn't figure out how to output a nice-looking table.
 * Any comments you have:
 
