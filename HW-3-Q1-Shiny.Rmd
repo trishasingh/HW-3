@@ -1,0 +1,81 @@
+---
+title: "HW-3-Shiny"
+author: "Trisha Singh"
+date: "11/1/2016"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(tidyverse)
+library(knitr)
+
+profiles <- read_csv(file="profiles_hw3.csv") %>% 
+  filter(!is.na(height)) %>%
+  mutate(is_female=ifelse(sex=='f', 1, 0)) %>% 
+  mutate(body_type=ifelse(is.na(body_type), "na", body_type)) %>% 
+  tibble::rownames_to_column(var="id")
+
+set.seed(7)
+
+training <- sample_n(profiles, 2997)
+test <- profiles %>% 
+  filter(!(id %in% training$id))
+```
+
+This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
+
+To learn more, see [Interactive Documents](http://rmarkdown.rstudio.com/authoring_shiny.html).
+
+## Inputs and Outputs
+
+You can embed Shiny inputs and outputs in your document. Outputs are automatically updated whenever inputs change.  This demonstrates how a standard R plot can be made interactive by wrapping it in the Shiny `renderPlot` function. The `selectInput` and `sliderInput` functions create the input widgets used to drive the plot.
+
+```{r eruptions, echo=FALSE}
+inputPanel(
+  sliderInput("threshold", "Decision Threshold", 
+              min = 0.00, max = 1.00, value = 0.50, step = 0.01)
+)
+
+renderPrint({
+  predict_sex_model <- glm(is_female ~ height + orientation + body_type
+                         , data=training, family="binomial")
+
+broom::tidy(predict_sex_model)
+
+training %>% 
+  mutate(p_hat = fitted(predict_sex_model)) %>%
+  mutate(fitted_binary = ifelse(p_hat > input$threshold, 1, 0)) %>% 
+  mutate(prediction_true = ifelse(fitted_binary==is_female, 1, 0)) %>% 
+  mutate(type1_error = ifelse(fitted_binary==1 & is_female==0, 1, 0)) %>% 
+  mutate(type2_error = ifelse(fitted_binary==0 & is_female==1, 1, 0)) %>% 
+  summarise("Training Rating" = mean(prediction_true), 
+            "Type 1 Error" = mean(type1_error),
+            "Type 2 Error" = mean(type2_error)) %>% 
+  kable(digits=3)
+})
+
+renderPrint({
+  
+  predict_sex_model <- glm(is_female ~ height + orientation + body_type
+                         , data=training, family="binomial")
+
+broom::tidy(predict_sex_model)
+
+test %>%
+  mutate(p_hat = predict(predict_sex_model, newdata=test, type="response")) %>%
+  mutate(fitted_binary = ifelse(p_hat > input$threshold, 1, 0)) %>%
+  mutate(prediction_true = ifelse(fitted_binary==is_female, 1, 0)) %>%
+  mutate(type1_error = ifelse(fitted_binary==1 & is_female==0, 1, 0)) %>%
+  mutate(type2_error = ifelse(fitted_binary==0 & is_female==1, 1, 0)) %>%
+  summarise("Test Rating" = mean(prediction_true),
+            "Type 1 Error" = mean(type1_error),
+            "Type 2 Error" = mean(type2_error)) %>%
+  kable(digits=3)
+
+})
+```

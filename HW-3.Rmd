@@ -1,6 +1,6 @@
 ---
 title: "MATH 216 Homework 3"
-author: "WRITE YOUR NAME HERE"
+author: "Trisha Singh"
 output:
   html_document:
     toc: true
@@ -15,6 +15,8 @@ library(dplyr)
 library(readr)
 library(lubridate)
 library(Quandl)
+library(tidyverse)
+library(knitr)
 ```
 
 
@@ -56,10 +58,12 @@ correctly predicted.
 # To keep this exercise simple, let's remove the only 3 users (0.005% of users)
 # who did not list a height, define the outcome variable, and add an ID variable
 # to distinguish the users
-profiles <- read_csv(file="profiles.csv") %>% 
-  filter(!is.na(height)) %>% 
+profiles <- read_csv(file="profiles_hw3.csv") %>% 
+  filter(!is.na(height)) %>%
   mutate(is_female=ifelse(sex=='f', 1, 0)) %>% 
+  mutate(body_type=ifelse(is.na(body_type), "na", body_type)) %>% 
   tibble::rownames_to_column(var="id")
+
 ```
 
 
@@ -79,8 +83,15 @@ prediction of sex for all 56,946 test users, then we use the `is_female` outcome
 to rate how well we performed.
 * Be sure to incorporate all the insight your garnered in your EDA in HW-2.
 
+
+**Look at Answer 1 in the Shiny App**
+
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
-set.seed(76)
+set.seed(7)
+
+training <- sample_n(profiles, 2997)
+test <- profiles %>% 
+  filter(!(id %in% training$id))
 
 ```
 
@@ -93,6 +104,21 @@ regression model to the `training` data. Assign this model to an R object called
 `predict_sex_model`, then rate how well the model performs on the `training` data.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+predict_sex_model <- glm(is_female ~ height + orientation + body_type
+                         , data=training, family="binomial")
+
+broom::tidy(predict_sex_model)
+
+training %>% 
+  mutate(p_hat = fitted(predict_sex_model)) %>%
+  mutate(fitted_binary = ifelse(p_hat > .5, 1, 0)) %>% 
+  mutate(prediction_true = ifelse(fitted_binary==is_female, 1, 0)) %>% 
+  mutate(type1_error = ifelse(fitted_binary==1 & is_female==0, 1, 0)) %>% 
+  mutate(type2_error = ifelse(fitted_binary==0 & is_female==1, 1, 0)) %>% 
+  summarise("Training Rating" = mean(prediction_true), 
+            "Type 1 Error" = mean(type1_error),
+            "Type 2 Error" = mean(type2_error)) %>% 
+  kable(digits=3)
 
 ```
 
@@ -108,6 +134,17 @@ type="response")` does? The help file is located in `?predict.glm`
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
 
+test %>% 
+  mutate(p_hat = predict(predict_sex_model, newdata=test, type="response")) %>% 
+  mutate(fitted_binary = ifelse(p_hat > .5, 1, 0)) %>% 
+  mutate(prediction_true = ifelse(fitted_binary==is_female, 1, 0)) %>% 
+  mutate(type1_error = ifelse(fitted_binary==1 & is_female==0, 1, 0)) %>% 
+  mutate(type2_error = ifelse(fitted_binary==0 & is_female==1, 1, 0)) %>% 
+  summarise("Test Rating" = mean(prediction_true),
+            "Type 1 Error" = mean(type1_error),
+            "Type 2 Error" = mean(type2_error)) %>% 
+  kable(digits=3)
+
 ```
 
 
@@ -117,8 +154,9 @@ type="response")` does? The help file is located in `?predict.glm`
 Did the model perform better on the `training` data or the `test` data? Why
 do you think that is?
 
+The model performs marginally better on the training data than the test data when the decision threshold is 0.5. This could be because the model is a bit narrower when the dataset is smaller. 
 
-
+Also, if you control for too many variables you may overfit the model to make it fit the training data, but it may not do as well on the test data.
 
 
 
@@ -135,10 +173,32 @@ Let the reference currency be US dollars. Analyze these results and provide
 insight to a foreign currency exchanger.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+gold <- Quandl("BUNDESBANK/BBK01_WT5511") %>% 
+  tbl_df()
+
+bitcoin <- Quandl("BAVERAGE/USD") %>% 
+  tbl_df() %>% 
+  mutate(currency="bitcoin") %>% 
+  filter(!is.na(Ask)) %>% 
+  mutate(value_change=(Ask/lag(Ask) - 1)*100) %>% 
+  filter(Date %within% interval(min(gold$Date), max(gold$Date)))
+  
+
+gold <- gold %>% 
+  mutate(currency="gold") %>% 
+  mutate(value_change=(Value/lag(Value) - 1)*100) %>% 
+  filter(Date %within% interval(min(bitcoin$Date), max(bitcoin$Date)))
+
+combined_currencies <- bind_rows(bitcoin, gold)
+
+ggplot(combined_currencies, aes(x=Date, y=value_change, colour=currency)) + geom_line(alpha=0.8)
+
+
+
 
 ```
 
-
+Bitcoin is very volatile as compared to gold.
 
 
 
@@ -177,7 +237,15 @@ the "graveyard shift" during the academic year? Define
 * the academic year as September through May (inclusive)
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+jukebox <- jukebox %>% 
+  mutate(date_time = parse_date_time(date_time, "a b d HMS Y")) %>% 
+  filter(hour(date_time) < 8) %>% 
+  filter(month(date_time) <= 5 | month(date_time) >= 9) %>% 
+  group_by(artist) %>% 
+  summarise(frequency = n()) %>% 
+  arrange(., desc(frequency))
 
+kable(head(jukebox, n=10))
 ```
 
 
