@@ -58,7 +58,7 @@ correctly predicted.
 # To keep this exercise simple, let's remove the only 3 users (0.005% of users)
 # who did not list a height, define the outcome variable, and add an ID variable
 # to distinguish the users
-profiles <- read_csv(file="profiles_hw3.csv") %>% 
+profiles <- read_csv(file="profiles.csv") %>% 
   filter(!is.na(height)) %>%
   mutate(is_female=ifelse(sex=='f', 1, 0)) %>% 
   mutate(body_type=ifelse(is.na(body_type), "na", body_type)) %>% 
@@ -91,7 +91,7 @@ set.seed(7)
 
 training <- sample_n(profiles, 2997)
 test <- profiles %>% 
-  filter(!(id %in% training$id))
+  anti_join(training, by="id")
 
 ```
 

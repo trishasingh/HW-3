@@ -13,8 +13,9 @@ library(dplyr)
 library(readr)
 library(tidyverse)
 library(knitr)
+library(xtable)
 
-profiles <- read_csv(file="profiles_hw3.csv") %>% 
+profiles <- read_csv(file="profiles.csv") %>% 
   filter(!is.na(height)) %>%
   mutate(is_female=ifelse(sex=='f', 1, 0)) %>% 
   mutate(body_type=ifelse(is.na(body_type), "na", body_type)) %>% 
@@ -24,7 +25,7 @@ set.seed(7)
 
 training <- sample_n(profiles, 2997)
 test <- profiles %>% 
-  filter(!(id %in% training$id))
+  anti_join(training, by="id")
 ```
 
 This R Markdown document is made interactive using Shiny. Unlike the more traditional workflow of creating static reports, you can now create documents that allow your readers to change the assumptions underlying your analysis and see the results immediately. 
@@ -54,13 +55,13 @@ training %>%
   mutate(type1_error = ifelse(fitted_binary==1 & is_female==0, 1, 0)) %>% 
   mutate(type2_error = ifelse(fitted_binary==0 & is_female==1, 1, 0)) %>% 
   summarise("Training Rating" = mean(prediction_true), 
-            "Type 1 Error" = mean(type1_error),
-            "Type 2 Error" = mean(type2_error)) %>% 
+            "Pr(Declaring Female when Male)" = mean(type1_error),
+            "Pr(Declaring Male when Female)" = mean(type2_error)) %>% 
   kable(digits=3)
 })
 
 renderPrint({
-  
+
   predict_sex_model <- glm(is_female ~ height + orientation + body_type
                          , data=training, family="binomial")
 
@@ -73,8 +74,8 @@ test %>%
   mutate(type1_error = ifelse(fitted_binary==1 & is_female==0, 1, 0)) %>%
   mutate(type2_error = ifelse(fitted_binary==0 & is_female==1, 1, 0)) %>%
   summarise("Test Rating" = mean(prediction_true),
-            "Type 1 Error" = mean(type1_error),
-            "Type 2 Error" = mean(type2_error)) %>%
+            "Pr(Declaring Female when Male)" = mean(type1_error),
+            "Pr(Declaring Male when Female)" = mean(type2_error)) %>%
   kable(digits=3)
 
 })
